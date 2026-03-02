@@ -1,0 +1,307 @@
+SQL
+
+-- Кто входит в десятку лучших клиентов с точки зрения совершенных ими покупок?
+select c.FirstName ||" "|| c.LastName as Name, sum(i.Total), avg(i.Total), c.Country, count(i.InvoiceId )
+from customers c
+inner join invoices i  on i.CustomerId = c.CustomerId
+group by c.CustomerId
+order by sum(i.Total) desc
+limit 10
+
+
+-- компания sTunes попросила нас собрать данные обо всех счетах,
+-- сумма которых меньше этого среднего значения.
+SELECT    InvoiceDate,    BillingAddress,    BillingCity,    Total
+FROM    invoices
+where Total <
+		(SELECT AVG(Total)
+		from invoices)
+order by Total
+
+-- компании sTunes нам надо узнать показатели продаж в каждом отдельном городе
+-- и сравнить их со средними мировыми продажами?		
+select BillingCity, round(avg(Total),2) as [city average],
+	(select round(avg(Total),2)
+	from invoices) as [global average]
+from invoices
+group by BillingCity
+order by BillingCity
+
+-- нас попросили найти самые большие продажи за весь период сбора данных (2009–2012 гг.)
+-- и проверить, имеются ли какие-либо итоговые суммы счетов
+-- за последний отчетный год (2013 г.), превышающие это значение.
+select max(total)
+from invoices i
+where i.InvoiceDate < '2013-01-01'
+-- заключим в круглые скобки
+SELECT    InvoiceDate,    BillingCity,    Total
+FROM    invoices
+where InvoiceDate >= '2013-01-01' and total >
+	(select max(total)
+	from invoices i
+	where i.InvoiceDate < '2013-01-01')
+
+-- Сколько счетов, значения которых превышали среднюю сумму счета,
+-- было зарегистрировано 1 января 2010 года или ранее?
+SELECT    count(*)
+FROM    invoices
+where InvoiceDate <= '2010-01-01' and total >
+	(select avg(total)
+	from invoices i
+	where i.InvoiceDate <= '2010-01-01')
+	
+SELECT    InvoiceDate
+FROM    invoices
+WHERE    InvoiceId = 251
+SELECT    InvoiceDate,    BillingCity,    Total
+FROM    invoices
+where InvoiceDate  >
+	(SELECT  InvoiceDate
+	FROM    invoices
+	WHERE    InvoiceId = 251)
+	
+
+-- нам нужна информация о покупках за эти три дня
+select InvoiceDate,  BillingCity,    Total
+from invoices
+where InvoiceDate in
+	(select InvoiceDate
+	 from invoices 
+	 where InvoiceId in (251, 252, 253))
+	
+SELECT distinct TrackId
+FROM    invoice_items
+ORDER BY    TrackId
+
+-- Руководство sTunes хочет знать о треках, которые не продаются
+select TrackId, Composer, Name 
+from tracks
+where TrackId not in
+	(SELECT distinct TrackId
+	FROM    invoice_items
+	ORDER BY    TrackId)	
+
+-- Сколько счетов превышают среднюю сумму счетов, выставленных в 2010 году?
+SELECT count(*)
+from invoices
+where i.Total > (
+	select avg(total)
+	from invoices
+	where InvoiceDate between '2010-01-01' and '2010-12-31')
+
+-- Какие клиенты получили эти счета? 	
+SELECT distinct c.CustomerId, c.FirstName, c.LastName
+from customers c
+join invoices i on c.CustomerId = i.CustomerId
+where i.Total > (
+	select avg(total)
+	from invoices
+	where InvoiceDate between '2010-01-01' and '2010-12-31')
+	
+
+
+-- Кто входит в десятку лучших клиентов с точки зрения совершенных ими покупок?
+select c.FirstName ||" "|| c.LastName as Name, sum(i.Total), avg(i.Total), c.Country, count(i.InvoiceId )
+from customers c
+inner join invoices i  on i.CustomerId = c.CustomerId
+group by c.CustomerId
+order by sum(i.Total) desc
+limit 10
+
+-- Каковы средние годовые продажи клиентам из США согласно
+-- имеющимся данным за все годы?
+select c.FirstName ||" "|| c.LastName as Name,
+SUM(i.Total) / COUNT(DISTINCT strftime('%Y', i.InvoiceDate)) AS avg_annual_sales
+from invoices i
+inner join customers c on i.CustomerId = c.CustomerId
+WHERE c.Country = 'USA'
+group by c.CustomerId
+
+
+-- отдел обслуживания клиентов sTunes хочет поощрить сотрудников, 
+-- которым удалось совершить десять самых лучших продаж
+select e.FirstName, e.LastName, e.EmployeeId, 
+c.FirstName, c.LastName, c.SupportRepId, 
+i.CustomerId, i.Total, 
+case 
+	when total > 25 then 'the best'
+	else 'noob'
+end rating
+from invoices i
+inner join customers c on i.CustomerId = c.CustomerId 	-- одна соединяет счета и клиентов
+inner join employees e on c.SupportRepId  = e.EmployeeId   	--  а другая соединяет и счета, и клиентов с сотрудниками
+order by i.Total desc
+
+CREATE VIEW V_inv_cus_emp AS
+SELECT
+i.InvoiceId, i.InvoiceDate, i.Total, i.CustomerId, c.FirstName, c.LastName, c.SupportRepId, e.EmployeeId, e.LastName, e.FirstName, e.Title
+FROM
+invoices AS i
+INNER JOIN
+customers AS c
+ON
+i.CustomerId = c.CustomerId
+INNER JOIN
+employees AS e
+ON
+e.EmployeeId = c.SupportRepId
+ORDER BY
+InvoiceDate
+
+create view  V_CityAvgVsGlobalAvg as
+SELECT
+BillingCity, AVG(Total) AS [City Average],
+(select * from V_GlobalAverage vga) AS [Global Average]
+FROM
+invoices
+GROUP BY
+BillingCity
+ORDER BY
+BillingCity
+--получить список исполнителей, у которых нет альбома
+select  ar.ArtistId AS [ArtistId From Artists Table],  
+al.ArtistId AS [ArtistId From Albums Table],  
+ar.Name AS [Artist Name],  
+al.Title AS [Album Title] 
+from artists ar 
+left join albums al on ar.ArtistID = al.ArtistID
+where al.ArtistId is null
+
+-- Создайте внутреннее соединение между таблицами albums и tracks
+-- и отобразите названия альбомов и названия треков в едином наборе результатов.
+select  t.TrackId,    t.Composer,    t.Name,    al.AlbumId,    al.Title 
+from tracks t
+left join albums al on t.AlbumId = al.AlbumId 
+where Composer is null
+
+-- Найти заказчиков, не сделавших ни одного заказа
+-- Вывести имя заказчика и order_id
+SELECT distinct contact_name, order_id
+FROM customers
+LEFT JOIN orders USING(customer_id)
+WHERE order_id IS NULL
+ORDER BY contact_name;
+
+-- Используйте функцию SUBSTR(X, Y), возвращающую  только последние четыре цифры почтового индекса 
+-- (там, где они есть) с псевдонимом ZIP + 4 Code.
+select FirstName, 
+substr(PostalCode,7) as 'ZIP + 4 Code',
+substr(PostalCode,1,5) as 'ZIP +',
+upper(FirstName),
+lower(LastName),
+upper(FirstName) || ' ' || upper(LastName) as FullName
+from customers 
+where Country = 'USA'
+
+-- Компания sTunes отмечает дни рождения сотрудников первого числа каждого месяца. 
+-- Создайте для отдела кадров таблицу, отображающую имена сотрудников, 
+-- дни рождения и день празднования.
+select LastName, FirstName,
+strftime('%Y-%m-%d', Birthdate) as Birthday,
+strftime('%m-%d',Birthdate,'start of month') || ' ' || FirstName as Celebrate
+from employees
+
+-- Отдел кадров компании sTunes сообщил нам, что возраст сотрудников 
+-- это тема весьма деликатная. Перепишите этот запрос, 
+-- чтобы в результате получить количество лет работы каждого сотрудника в компании. 
+-- Какой сотрудник проработал в компании дольше всех?
+select FirstName, LastName,
+strftime('%Y-%m-%d',HireDate) as 'get a job',
+strftime('%Y-%m-%d', 'now') - strftime('%Y-%m-%d',HireDate) as working
+from employees
+order by working desc
+
+SELECT *, 
+Total * 1.13 as налоги,
+Total + 10 AS 'Addition Operator',
+Total % 10 AS 'Modulo Operator'
+FROM invoices
+
+SELECT max(distinct(Total))
+FROM invoices
+where total > 1.98
+order by total desc
+
+ SELECT InvoiceId, InvoiceDate,
+ BillingAddress,
+ BillingCity,
+ Total
+FROM
+ invoices
+ where date(InvoiceDate) > '2010-01-02' and total > 3 or InvoiceId = 4;
+ 
+/*
+объединение
+*/
+select country
+from customers
+union 
+select country
+from employees;
+
+/*
+пересечение
+*/
+select country
+from customers
+intersect
+select country
+from employees;
+
+/*
+разница (исключение employees)
+*/
+select country
+from customers
+except
+select country
+from employees;
+
+
+select distinct country
+from customers
+intersect 
+select distinct country
+from suppliers
+intersect 
+select distinct country
+from employees
+
+– Найти заказчиков, не сделавших ни одного заказа. Вывести имя заказчика и order_id.
+select contact_name, order_id
+from customers c
+left join orders o  on c.customer_id = o.customer_id
+where order_id is null
+order by contact_name
+
+select e.FirstName, e.LastName, e.EmployeeId, 
+c.FirstName, c.LastName, c.SupportRepId, 
+i.CustomerId, i.Total, iit.UnitPrice, iit.Quantity,
+case 
+	when total > 25 then 'the best'
+	else 'noob'
+end rating
+from invoice_items iit
+inner join invoices i on iit.invoiceLineId = iit.invoiceId 
+inner join customers c on i.CustomerId = c.CustomerId 	
+inner join employees e on c.SupportRepId  = e.EmployeeId
+order by i.Total desc
+
+-- где для создания в одной строке имени и адреса клиента 
+-- используется множественная конкатенация.
+select  concat(FirstName || ' ' || LastName || ' ' || Address || ', ' || City || ', ' || PostalCode) as Full
+from customers 
+where Country = 'USA'
+
+- Чтобы узнать возраст сотрудников, вычислим разницу во времени между 
+-- датой рождения каждого сотрудника и текущей датой. 
+-- Текущую дату можно получить, используя функцию NOW.
+select LastName, FirstName,
+strftime('%Y-%m-%d', Birthdate) AS [Birthday No Timecode],
+strftime('%Y-%m-%d', 'now') as cont,
+strftime('%Y-%m-%d', 'now') - strftime('%Y-%m-%d', Birthdate) as age 
+from employees
+order by age
+
+
+
