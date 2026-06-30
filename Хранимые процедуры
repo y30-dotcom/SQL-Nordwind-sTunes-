@@ -1,0 +1,71 @@
+ПОЛУЧЕНИЕ СТАТИСТИКИ ЦЕН ЧЕРЕЗ ВЫХОДНЫЕ ПАРАМЕТРЫ
+
+create or replace procedure get_price_stats(
+    out min_price numeric,
+    out max_price numeric
+)
+language plpgsql
+as begin 
+    select min(price), max(price) 
+    into min_price, max_price 
+    from products; 
+end; ;
+
+
+
+ДЛЯ E-COMMERCE
+#с_входным_значением
+
+create or replace procedure add_product( 
+    p_id int,
+    p_cat_id int,
+    p_name varchar,
+    p_price numeric,
+    p_stock int)
+language plpgsql
+as $$
+begin
+-- 1. вставляем данные в таблицу
+insert into products(product_id, category_id, product_name, price, stock_quantity)
+values(p_id, p_cat_id, p_name, p_price, p_stock);
+-- 2. логируем действие в консоль
+-- в raise notice используем % как заполнители для переменных
+raise notice 'товар "%" (id: %) успешно добавлен в категорию %', p_name, p_id, p_cat_id;
+end;
+$$;
+вызов:
+call add_product(14, 10, 'iqoo', 950.00, 100
+
+
+
+ДЛЯ E-COMMERCE
+#с_выходным_значением
+
+create or replace procedure get_product_price(
+    p_id int, 
+    out p_price numeric)
+language plpgsql
+as $$
+begin
+    select price into p_price
+    from products where product_id = p_id;
+end; 
+$$
+вызов:
+CALL get_product_price(3, NULL);
+
+
+
+ДЛЯ E-COMMERCE
+#с_входным_значением
+
+create or replace procedure update_stock(p_id int, p_change int)
+language plpgsql
+as $$
+begin
+    update products
+    set stock_quantity = stock_quantity + p_change
+    where product_id = p_id; -- проверяем, затронул ли update хоть одну строку if not found then raise exception 'товар с id % не найден!', p_id; end if; end; $$;`
+вызов:
+call update_stock(4, -2);
+
