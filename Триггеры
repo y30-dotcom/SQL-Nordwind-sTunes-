@@ -82,4 +82,26 @@ execute function log_deleted_data();
 
 
 
+ПРИМЕНЕНИЕ INSTEAD OF
+контроль над операциями
+Срабатывают вместо самой операции. Особенно полезны для представлений, где прямая вставка/обновление невозможна.
+
+Сценарий 1: Мягкое удаление
+-- добавляем флаг "удалён"
+alter table products add column is_deleted boolean default false;
+
+-- триггер вместо delete
+create or replace function soft_delete_product()
+returns trigger as $$
+begin
+    update products set is_deleted = true where id = old.id;
+    return null; -- операция завершена
+end;
+$$ language plpgsql;
+
+create trigger trg_soft_delete
+instead of delete on products_view  -- представление!
+for each row
+execute function soft_delete_product();
+теперь delete from products_view where id = 5 не удаляет строку, а помечает её как удалённую.
 
