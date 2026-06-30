@@ -1,0 +1,85 @@
+ПРИМЕР 1: ЗАЩИТА ОТ ОТРИЦАТЕЛЬНОЙ ЦЕНЫ (BEFORE INSERT/UPDATE)
+
+1. Создаём функцию-валидатор
+create or replace function check_price_positive()
+returns trigger as $$
+begin 
+	  if NEW.price < 0 then
+		raise exception 'Цена не может быть отрицательной! (Указано: %)', NEW.price;
+	  end if;
+	return new; -- для BEFORE: вернуть NEW = разрешить операцию
+end;
+$$ language plpgsql;
+
+2. Привязываем триггер к таблице
+create trigger trg_check_price
+before insert or update on products
+for each row
+execute function check_price_positive();
+
+
+
+ПРИМЕР 2: АУДИТ ИЗМЕНЕНИЙ (`AFTER UPDATE`)
+при каждом обновлении цены автоматически записывает старую цену, новую цену и дату изменения в таблицу
+
+-- таблица для логов
+create table price_audit (
+    id serial,
+    product_id int,
+    old_price numeric,
+    new_price numeric,
+    changed_at timestamp default now()
+);
+
+-- функция логирования
+create or replace function old_new_date()
+returns trigger as $$
+begin
+	insert into price_audit(product_id, old_price, new_price)
+	values (old.product_id, old.price, new.price);
+	return new;
+end;
+$$language plpgsql;
+
+-- триггер
+create trigger trg_log_price
+after update of price on products
+for each row
+when (old.price is distinct from new.price)
+execute function old_new_date();
+
+
+
+ЛОГИРОВАНИЕ УДАЛЕНИЙ
+
+-- 1. таблица истории (добавили дату удаления для удобства)
+create table history (
+    id serial primary key,
+    product_id int,
+    old_price numeric,
+    name text,
+    deleted_at timestamp default now() 
+);
+
+-- 2. функция, которая берет данные из old
+create or replace function log_deleted_data()
+returns trigger as $$
+begin
+    -- при delete мы используем только old
+    insert into history(product_id, old_price, name)
+    values (old.id, old.price, old.name);
+    
+    -- для триггера delete возвращаемое значение должно быть old
+    return old;
+end;
+$$ language plpgsql;
+
+-- 3. триггер, срабатывающий при удалении
+create trigger trg_del_history
+after delete on products -- используем after, чтобы логировать только успешные удаления
+for each row
+execute function log_deleted_data();
+
+
+
+
